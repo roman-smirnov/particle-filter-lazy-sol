@@ -1,4 +1,7 @@
 reviewer
+.idea
+DS_STORE
+cmake-build-debug
 submission_instructions.*
 build
 solution
