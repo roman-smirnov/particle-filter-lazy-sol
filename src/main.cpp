@@ -24,30 +24,20 @@ string hasData(string s) {
   }
   return "";
 }
-
 int main() {
   uWS::Hub h;
 
-  // Set up parameters here
-  double delta_t = 0.1;  // Time elapsed between measurements [sec]
-  double sensor_range = 50;  // Sensor range [m]
-
-  // GPS measurement uncertainty [x [m], y [m], theta [rad]]
-  double sigma_pos [3] = {0.3, 0.3, 0.01};
-  // Landmark measurement uncertainty [x [m], y [m]]
-  double sigma_landmark [2] = {0.3, 0.3};
-
   // Read map data
-  Map map;
+  pfilter::Map map;
   if (!read_map_data("../data/map_data.txt", map)) {
     std::cout << "Error: Could not open map file" << std::endl;
     return -1;
   }
 
   // Create particle filter
-  ParticleFilter pf;
+  pfilter::ParticleFilter pf;
 
-  h.onMessage([&pf,&map,&delta_t,&sensor_range,&sigma_pos,&sigma_landmark]
+  h.onMessage([&pf,&map]
               (uWS::WebSocket<uWS::SERVER> ws, char *data, size_t length, 
                uWS::OpCode opCode) {
     // "42" at the start of the message means there's a websocket message event.
@@ -68,19 +58,19 @@ int main() {
             double sense_x = std::stod(j[1]["sense_x"].get<string>());
             double sense_y = std::stod(j[1]["sense_y"].get<string>());
             double sense_theta = std::stod(j[1]["sense_theta"].get<string>());
-            pf.init(sense_x, sense_y, sense_theta, sigma_pos);
+            pf.init(sense_x, sense_y, sense_theta);
           } else {
             // Predict the vehicle's next state from previous 
             //   (noiseless control) data.
             double previous_velocity = std::stod(j[1]["previous_velocity"].get<string>());
             double previous_yawrate = std::stod(j[1]["previous_yawrate"].get<string>());
-            pf.prediction(delta_t, sigma_pos, previous_velocity, previous_yawrate);
+            pf.prediction(previous_velocity, previous_yawrate);
           }
 
           // receive noisy observation data from the simulator
           // sense_observations in JSON format 
           //   [{obs_x,obs_y},{obs_x,obs_y},...{obs_x,obs_y}] 
-          vector<LandmarkObs> noisy_observations;
+          vector<pfilter::LandmarkObs> noisy_observations;
           string sense_observations_x = j[1]["sense_observations_x"];
           string sense_observations_y = j[1]["sense_observations_y"];
 
@@ -99,22 +89,22 @@ int main() {
           std::back_inserter(y_sense));
 
           for (int i = 0; i < x_sense.size(); ++i) {
-            LandmarkObs obs;
+            pfilter::LandmarkObs obs;
             obs.x = x_sense[i];
             obs.y = y_sense[i];
             noisy_observations.push_back(obs);
           }
 
           // Update the weights and resample
-          pf.updateWeights(sensor_range, sigma_landmark, noisy_observations, map);
+          pf.updateWeights(noisy_observations, map);
           pf.resample();
 
           // Calculate and output the average weighted error of the particle 
           //   filter over all time steps so far.
-          vector<Particle> particles = pf.particles_list;
+          vector<pfilter::Particle> particles = pf.particles_list;
           int num_particles = particles.size();
           double highest_weight = -1.0;
-          Particle best_particle;
+          pfilter::Particle best_particle;
           double weight_sum = 0.0;
           for (int i = 0; i < num_particles; ++i) {
             if (particles[i].weight > highest_weight) {

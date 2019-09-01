@@ -9,17 +9,27 @@
 #ifndef HELPER_FUNCTIONS_H_
 #define HELPER_FUNCTIONS_H_
 
-#include <math.h>
+#include "map.h"
+
+#include <cmath>
 #include <fstream>
 #include <sstream>
 #include <string>
 #include <vector>
-#include "map.h"
+#include <limits>
 
-// for portability of M_PI (Vis Studio, MinGW, etc.)
-#ifndef M_PI
-const double M_PI = 3.14159265358979323846;
-#endif
+namespace pfilter {
+
+// machine epsilon of type double (IMPORTANT: not smallest possible positive double)
+constexpr double kEpsilon = std::numeric_limits<double>::epsilon();
+
+constexpr double kInfinity = std::numeric_limits<double>::infinity();
+
+// i.e compile time double constant version of M_PI
+constexpr double kPi = 3.1415926535897932385L;
+
+// i.e 2*M_PI, also known as Tau
+constexpr double kTwoPi = 2.0 * kPi;
 
 /**
  * Struct representing one position/control measurement.
@@ -42,11 +52,15 @@ struct ground_truth {
  * Struct representing one landmark observation measurement.
  */
 struct LandmarkObs {
-  
+
   int id;     // Id of matching landmark in the map.
   double x;   // Local (vehicle coords) x position of landmark observation [m]
   double y;   // Local (vehicle coords) y position of landmark observation [m]
 };
+
+inline double pow2(double x) {
+  return std::pow(x, 2);
+}
 
 /**
  * Computes the Euclidean distance between two 2D points.
@@ -55,7 +69,7 @@ struct LandmarkObs {
  * @output Euclidean distance between two 2D points
  */
 inline double dist(double x1, double y1, double x2, double y2) {
-  return sqrt((x2 - x1) * (x2 - x1) + (y2 - y1) * (y2 - y1));
+  return std::sqrt(pow2(x2 - x1) + pow2(y2 - y1));
 }
 
 /**
@@ -64,15 +78,15 @@ inline double dist(double x1, double y1, double x2, double y2) {
  * @param (pf_x, pf_y, pf_theta) x, y and theta of particle filter
  * @output Error between ground truth and particle filter data.
  */
-inline double * getError(double gt_x, double gt_y, double gt_theta, double pf_x,
-                         double pf_y, double pf_theta) {
+inline double *getError(double gt_x, double gt_y, double gt_theta, double pf_x,
+                        double pf_y, double pf_theta) {
   static double error[3];
-  error[0] = fabs(pf_x - gt_x);
-  error[1] = fabs(pf_y - gt_y);
-  error[2] = fabs(pf_theta - gt_theta);
-  error[2] = fmod(error[2], 2.0 * M_PI);
-  if (error[2] > M_PI) {
-    error[2] = 2.0 * M_PI - error[2];
+  error[0] = std::abs(pf_x - gt_x);
+  error[1] = std::abs(pf_y - gt_y);
+  error[2] = std::abs(pf_theta - gt_theta);
+  error[2] = std::fmod(error[2], kTwoPi);
+  if (error[2] > kPi) {
+    error[2] = kTwoPi - error[2];
   }
   return error;
 }
@@ -84,12 +98,12 @@ inline double * getError(double gt_x, double gt_y, double gt_theta, double pf_x,
  */
 inline bool read_map_data(std::string filename, Map& map) {
   // Get file of map
-  std::ifstream in_file_map(filename.c_str(),std::ifstream::in);
+  std::ifstream in_file_map(filename.c_str(), std::ifstream::in);
   // Return if we can't open the file
   if (!in_file_map) {
     return false;
   }
-  
+
   // Declare single line of map file
   std::string line_map;
 
@@ -112,8 +126,8 @@ inline bool read_map_data(std::string filename, Map& map) {
 
     // Set values
     single_landmark_temp.id_i = id_i;
-    single_landmark_temp.x_f  = landmark_x_f;
-    single_landmark_temp.y_f  = landmark_y_f;
+    single_landmark_temp.x_f = landmark_x_f;
+    single_landmark_temp.y_f = landmark_y_f;
 
     // Add to landmark list of map
     map.landmark_list.push_back(single_landmark_temp);
@@ -126,10 +140,10 @@ inline bool read_map_data(std::string filename, Map& map) {
  * @param filename Name of file containing control measurements.
  * @output True if opening and reading file was successful
  */
-inline bool read_control_data(std::string filename, 
+inline bool read_control_data(std::string filename,
                               std::vector<control_s>& position_meas) {
   // Get file of position measurements
-  std::ifstream in_file_pos(filename.c_str(),std::ifstream::in);
+  std::ifstream in_file_pos(filename.c_str(), std::ifstream::in);
   // Return if we can't open the file
   if (!in_file_pos) {
     return false;
@@ -152,7 +166,7 @@ inline bool read_control_data(std::string filename,
     //read data from line to values:
     iss_pos >> velocity;
     iss_pos >> yawrate;
-    
+
     // Set values
     meas.velocity = velocity;
     meas.yawrate = yawrate;
@@ -170,7 +184,7 @@ inline bool read_control_data(std::string filename,
  */
 inline bool read_gt_data(std::string filename, std::vector<ground_truth>& gt) {
   // Get file of position measurements
-  std::ifstream in_file_pos(filename.c_str(),std::ifstream::in);
+  std::ifstream in_file_pos(filename.c_str(), std::ifstream::in);
   // Return if we can't open the file
   if (!in_file_pos) {
     return false;
@@ -188,7 +202,7 @@ inline bool read_gt_data(std::string filename, std::vector<ground_truth>& gt) {
     double x, y, azimuth;
 
     // Declare single ground truth
-    ground_truth single_gt; 
+    ground_truth single_gt;
 
     //read data from line to values
     iss_pos >> x;
@@ -211,10 +225,10 @@ inline bool read_gt_data(std::string filename, std::vector<ground_truth>& gt) {
  * @param filename Name of file containing landmark observation measurements.
  * @output True if opening and reading file was successful
  */
-inline bool read_landmark_data(std::string filename, 
+inline bool read_landmark_data(std::string filename,
                                std::vector<LandmarkObs>& observations) {
   // Get file of landmark measurements
-  std::ifstream in_file_obs(filename.c_str(),std::ifstream::in);
+  std::ifstream in_file_obs(filename.c_str(), std::ifstream::in);
   // Return if we can't open the file
   if (!in_file_obs) {
     return false;
@@ -248,4 +262,5 @@ inline bool read_landmark_data(std::string filename,
   return true;
 }
 
+}
 #endif  // HELPER_FUNCTIONS_H_
