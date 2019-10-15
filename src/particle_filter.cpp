@@ -93,6 +93,10 @@ void ParticleFilter::updateWeights(const std::vector<LandmarkObs>& observations,
 
   for (Particle& particle : particles_list) {
 
+    particle.associations.clear();
+    particle.sense_x.clear();
+    particle.sense_y.clear();
+
     // all landmarks within sensor range from particle
     std::vector<LandmarkObs> predictions;
     for (auto& landmark : map_landmarks.landmark_list) {
@@ -146,7 +150,7 @@ void ParticleFilter::resample() {
   std::vector<Particle> new_particles(kNumParticles);
   for (Particle& new_p : new_particles) {
     const Particle& p = particles_list[rand_ind_gen(pseudo_random_engine)];
-    new_p = {p.id, p.x, p.y, p.theta, p.weight};
+    new_p = {p.id, p.x, p.y, p.theta, p.weight, p.associations, p.sense_x, p.sense_y};
   }
   particles_list = new_particles;
 }
@@ -160,7 +164,7 @@ std::string ParticleFilter::getAssociations(Particle best) {
   return s;
 }
 
-std::string ParticleFilter::getSenseCoord(Particle best, std::string coord) {
+std::string ParticleFilter::getSenseCoord(const Particle& best, std::string coord) {
   std::vector<double> v;
 
   if (coord == "X") {
@@ -170,9 +174,13 @@ std::string ParticleFilter::getSenseCoord(Particle best, std::string coord) {
   }
 
   std::stringstream ss;
-  std::copy(v.begin(), v.end(), std::ostream_iterator<float>(ss, " "));
+  std::copy(v.begin(), v.end(), std::ostream_iterator<double>(ss, " "));
   std::string s = ss.str();
   s = s.substr(0, s.length() - 1);  // get rid of the trailing space
+//  std::cout << "best sense:" << v << std::endl;
+//  for (auto b : v) {
+//    std::cout << b << std::endl;
+//  }
   return s;
 }
 

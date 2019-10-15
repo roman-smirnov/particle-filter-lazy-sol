@@ -81,7 +81,7 @@ class ParticleFilter {
    * Used for obtaining debugging information related to particles.
    */
   std::string getAssociations(Particle best);
-  std::string getSenseCoord(Particle best, std::string coord);
+  std::string getSenseCoord(const Particle& best, std::string coord);
 
   // Set of current particles
   std::vector<Particle> particles_list;
